@@ -1,0 +1,8 @@
+name = "Panels"
+uuid = "5f0bb902-5e7e-48ff-ba95-f7a2d63d618c"
+authors = ["William Manning <manning.w27@gmail.com>"]
+version = "0.1.0"
+
+[deps]
+FreeType = "b38be410-82b0-50bf-ab77-7b57e271db43"
+SimpleDirectMediaLayer = "98e33af6-2ee5-5afd-9e75-cbc738b767c4"
