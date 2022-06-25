@@ -45,8 +45,10 @@ function close_dependencies()
         if IS_INITIALIZED[]
             SDL_Quit()
 
-            # Apparently FreeType does not need to be cleaned up?
+            FT_Done_FreeType(FREE_TYPE[])
             FREE_TYPE[] = C_NULL
+
+            IS_INITIALIZED[] = false
         end
     end
 end
@@ -92,4 +94,45 @@ function make_face( font_file_path::AbstractString,
     end
 
     return face[]
+end
+
+"
+Loads a font glyph, and converts it into an SDL texture (ARGB, 4 bits per channel).
+You are responsible for destroying this texture when you're done with it.
+"
+function render_char( font_face::FT_Face, char::Char,
+                      sdl_renderer::Ptr{SDL_Renderer}
+                      ;
+                      tex_access::SDL_TextureAccess = SDL_TEXTUREACCESS_STATIC
+                    )::Ptr{SDL_Texture}
+    # Load the char as a bitmap.
+    code = FT_Load_Char(font_face, char, FT_LOAD_RENDER)
+    if code != FT_Err_Ok
+        error("Couldn't load font char '", char, "': ", code)
+    end
+    bitmap::FT_Bitmap = unsafe_load(unsafe_load(font_face).glyph).bitmap
+
+    # Create a texture to hold the rendered char.
+    tex::Ptr{SDL_Texture} = SDL_CreateTexture(
+        sdl_renderer,
+        SDL_PIXELFORMAT_ARGB8888, tex_access,
+        bitmap.width, bitmap.rows
+    )
+    if tex == C_NULL
+        error("Couldn't create SDL texture: ", unsafe_string(SDL_GetError()))
+    end
+
+    # Write the bitmap's pixels into the texture.
+    pixel_data = Matrix{UInt32}(undef, (bitmap.width, bitmap.rows))
+    for y in 1:bitmap.rows
+        for x in 1:bitmap.width
+            pixel::UInt8 = unsafe_load(bitmap.buffer, x + (y * bitmap.pitch))
+            pixel_data[x, y] = (UInt32(pixel)) | (UInt32(pixel) << 8) | (UInt32(pixel) << 16) |
+                               ((pixel > 0) ? 0xFF000000 : 0x00000000)
+        end
+    end
+    SDL_UpdateTexture(tex, C_NULL, pixel_data,
+                      bitmap.width * sizeof(eltype(pixel_data)))
+
+    return tex
 end
